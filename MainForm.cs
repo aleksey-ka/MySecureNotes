@@ -19,11 +19,12 @@ namespace MySecureNotes
 
         private const int bufSize = 1024;
         private const int ivSize = 16;
-        private const int maxMessageLength = ( bufSize - ( ivSize + 1 + Byte.MaxValue + sizeof( Int32 ) ) ) / sizeof( char );
+        private const int maxRecordLength = ( bufSize - ( ivSize + 1 + Byte.MaxValue + sizeof( Int32 ) ) ) / sizeof( char );
         private const string salt = "9F8a8,065#a3-8Rb!c0%вcу20e3f1b3^f42+59bc9Р8a8,0$5#a3-8%b!c;%bc'20d3f1(3^f]2{59Р}";
         private List<byte[]> buffers;
         private int[] magicHash;
         private byte[] key;
+
         private RandomNumberGenerator rnd = RandomNumberGenerator.Create();
         private Aes algorithm = Aes.Create();
         
@@ -32,7 +33,7 @@ namespace MySecureNotes
             InitializeComponent();
             
             passwordTextBox.MaxLength = salt.Length;
-            updateTextBox.MaxLength = maxMessageLength;
+            updateTextBox.MaxLength = maxRecordLength;
             updateTextBox.ReadOnly = true;
         }
 
@@ -104,7 +105,7 @@ namespace MySecureNotes
         private void deleteButton_Click( object sender, EventArgs e )
         {
             bool delete = ( treeView.SelectedNode.Tag == null ||
-                MessageBox.Show( "Are you sure you want to delete the selected note?", "My Secure Notes",  MessageBoxButtons.OKCancel ) == DialogResult.OK );
+                MessageBox.Show( "Are you sure you want to delete the selected note?", this.Text,  MessageBoxButtons.OKCancel ) == DialogResult.OK );
             if( delete ) {
                 int index = treeView.Nodes.IndexOf( treeView.SelectedNode );
                 treeView.Nodes.RemoveAt( index );
@@ -142,15 +143,15 @@ namespace MySecureNotes
         {
             if( treeView.SelectedNode != null ) {
                 if( treeView.SelectedNode.Tag == null ) {
-                    bool discard = ( e == null || updateTextBox.Text.Length == 0 || 
-                        MessageBox.Show( "Discard changes?", "My Secure Notes",  MessageBoxButtons.OKCancel ) == DialogResult.OK );
+                    bool discard = ( e == null || updateTextBox.Text.Length == 0 ||
+                        MessageBox.Show( "Discard changes?", this.Text, MessageBoxButtons.OKCancel ) == DialogResult.OK );
                     if( discard ) {
                         treeView.Nodes.Remove( treeView.SelectedNode );
                         return;
                     }
                 } else {
                     bool discard = ( e == null || updateTextBox.Text == (string) treeView.SelectedNode.Tag ||
-                        MessageBox.Show( "Discard changes?", "My Secure Notes",  MessageBoxButtons.OKCancel ) == DialogResult.OK );
+                        MessageBox.Show( "Discard changes?", this.Text, MessageBoxButtons.OKCancel ) == DialogResult.OK );
                     if( discard ) {
                         return;
                     }
@@ -274,7 +275,7 @@ namespace MySecureNotes
         {
             buf = crypt( Convert.FromBase64String( s ), false );
             int offset = ivSize + buf[ivSize] + 1;
-            int length = Math.Max( 0, Math.Min( maxMessageLength, readInt( buf, offset ) ) );
+            int length = Math.Max( 0, Math.Min( maxRecordLength, readInt( buf, offset ) ) );
             offset += 4;
             System.Text.StringBuilder result = new System.Text.StringBuilder( length );
             for( int i = 0; i < length; i++ ) {
