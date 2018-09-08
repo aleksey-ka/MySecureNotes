@@ -93,7 +93,7 @@ namespace MySecureNotes
         {
             TreeNode node = treeView.Nodes.Add( ">>> Type a new note and press 'Enter' to commit or 'Esc' to cancel..." );
             treeView.SelectedNode = node;
-            buffers.Add( rndBuffer() );
+            buffers.Add( newRandomBuffer() );
 
             updateButton.Enabled = true;
             addNewButton.Enabled = false;
@@ -214,15 +214,13 @@ namespace MySecureNotes
             if( File.Exists( fileName ) ) {
                 string[] strings = File.ReadAllLines( fileName );
                 buffers = new List<byte[]>( strings.Length );
-                int seed = 7;
                 foreach( string s in strings ) {
                     if( s.Trim().Length > 0 ) {
                         byte[] buffer;
-                        string value = decode( s, seed, out buffer );
+                        string value = decode( s, out buffer );
                         TreeNode newNode = treeView.Nodes.Add( getTitle( value ) );
                         newNode.Tag = value;
                         buffers.Add( buffer );
-                        seed++;
                     }
                 }
             }
@@ -232,11 +230,9 @@ namespace MySecureNotes
         {
             List<string> strings = new List<string>();
             int index = 0;
-            int seed = 7;
             foreach( TreeNode node in treeView.Nodes ) {
-                strings.Add( encode( (string) node.Tag, seed, buffers[index] ) );
+                strings.Add( encode( (string) node.Tag, buffers[index] ) );
                 strings.Add( "" );
-                seed++;
                 index++;
             }
             File.WriteAllLines( Properties.Settings.Default.FilePath, strings.ToArray() );
@@ -250,7 +246,6 @@ namespace MySecureNotes
 
         private byte[] crypt( byte[] buf, bool encrypt )        
         {
-            
             using( var m = new MemoryStream() ) {
                 byte[] iv = new byte[ivSize];
                 Array.Copy( buf, iv, ivSize );
@@ -264,7 +259,7 @@ namespace MySecureNotes
             }
         }
 
-        private string encode( string s, int seed, byte[] buf )
+        private string encode( string s, byte[] buf )
         {
             int offset = ivSize + buf[ivSize] + 1;
             writeInt( buf, offset, s.Length );
@@ -274,15 +269,9 @@ namespace MySecureNotes
                 writeInt( buf, offset + 4 * i, c );
             }
             return Convert.ToBase64String( crypt( buf, true ) );
-
-            /*System.Text.StringBuilder result = new System.Text.StringBuilder();
-            for( int i = 0; i < s.Length; i++ ) {
-                result.Append( ( (int)s[i] ^ magicHash[i] ^ magicHash[ magicHash[seed] % magicHash.Length ] ).ToString( "x4" ) );
-            }
-            return result.ToString();*/                        
         }
 
-        private string decode( string s, int seed, out byte[] buf )
+        private string decode( string s, out byte[] buf )
         {
             buf = crypt( Convert.FromBase64String( s ), false );
             int offset = ivSize + buf[ivSize] + 1;
@@ -294,14 +283,13 @@ namespace MySecureNotes
                 result.Append( (char) ( c ^ (int) magicHash[i] ^ magicHash[magicHash[offset % magicHash.Length] % magicHash.Length] ) );
             }
             return result.ToString();
+        }
 
-            /*System.Text.StringBuilder result = new System.Text.StringBuilder();
-            for( int i = 0; i < s.Length / 4; i++ ) {
-                int c = Int32.Parse( s.Substring( i * 4, 4 ), System.Globalization.NumberStyles.HexNumber );
-                result.Append( (char)( c ^ (int)magicHash[i]^ magicHash[ magicHash[seed] % magicHash.Length] ) );
-            }
-            buf = rndBuffer();
-            return result.ToString();*/
+        private byte[] newRandomBuffer()
+        {
+            byte[] buf = new byte[bufSize];
+            rnd.GetBytes( buf );
+            return buf;
         }
 
         private static int readInt( byte[] buf, int pos )
@@ -310,13 +298,6 @@ namespace MySecureNotes
                 ( buf[pos + 1] << 8 ) |
                 ( buf[pos + 2] << 16 ) |
                 ( buf[pos + 3] << 24 );
-        }
-
-        private byte[] rndBuffer()
-        {
-            byte[] buf = new byte[bufSize];
-            rnd.GetBytes( buf );
-            return buf;
         }
 
         private static void writeInt( byte[] buf, int pos, int value )
