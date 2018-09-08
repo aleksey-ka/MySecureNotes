@@ -103,8 +103,8 @@ namespace MySecureNotes
 
         private void deleteButton_Click( object sender, EventArgs e )
         {
-            bool delete = treeView.SelectedNode.Tag == null ||
-                MessageBox.Show( "Are you sure you want to delete the selected note?", "My Secure Notes",  MessageBoxButtons.OKCancel ) == DialogResult.OK;
+            bool delete = ( treeView.SelectedNode.Tag == null ||
+                MessageBox.Show( "Are you sure you want to delete the selected note?", "My Secure Notes",  MessageBoxButtons.OKCancel ) == DialogResult.OK );
             if( delete ) {
                 int index = treeView.Nodes.IndexOf( treeView.SelectedNode );
                 treeView.Nodes.RemoveAt( index );
@@ -142,15 +142,15 @@ namespace MySecureNotes
         {
             if( treeView.SelectedNode != null ) {
                 if( treeView.SelectedNode.Tag == null ) {
-                    bool discard = e == null || updateTextBox.Text.Length == 0 || 
-                        MessageBox.Show( "Discard changes?", "My Secure Notes",  MessageBoxButtons.OKCancel ) == DialogResult.OK;
+                    bool discard = ( e == null || updateTextBox.Text.Length == 0 || 
+                        MessageBox.Show( "Discard changes?", "My Secure Notes",  MessageBoxButtons.OKCancel ) == DialogResult.OK );
                     if( discard ) {
                         treeView.Nodes.Remove( treeView.SelectedNode );
                         return;
                     }
                 } else {
-                    bool discard = e== null || updateTextBox.Text == (string) treeView.SelectedNode.Tag ||
-                        MessageBox.Show( "Discard changes?", "My Secure Notes",  MessageBoxButtons.OKCancel ) == DialogResult.OK;
+                    bool discard = ( e == null || updateTextBox.Text == (string) treeView.SelectedNode.Tag ||
+                        MessageBox.Show( "Discard changes?", "My Secure Notes",  MessageBoxButtons.OKCancel ) == DialogResult.OK );
                     if( discard ) {
                         return;
                     }
@@ -196,7 +196,6 @@ namespace MySecureNotes
         private void MainForm_Activated( object sender, EventArgs e )
         {
             updateTextBox.Visible = true;
-            ;
         }
 
         private void MainForm_Deactivate( object sender, EventArgs e )
@@ -210,9 +209,9 @@ namespace MySecureNotes
         {
             treeView.Nodes.Clear();
 
-            string fileName = Properties.Settings.Default.FilePath;
-            if( File.Exists( fileName ) ) {
-                string[] strings = File.ReadAllLines( fileName );
+            string filePath = Properties.Settings.Default.FilePath;
+            if( File.Exists( filePath ) ) {
+                string[] strings = File.ReadAllLines( filePath );
                 buffers = new List<byte[]>( strings.Length );
                 foreach( string s in strings ) {
                     if( s.Trim().Length > 0 ) {
