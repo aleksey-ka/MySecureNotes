@@ -19,10 +19,10 @@ namespace MySecureNotes
 
         private const int bufSize = 1024;
         private const int ivSize = 16;
-        private const int maxRecordLength = ( bufSize - ( ivSize + 1 + Byte.MaxValue + sizeof( Int32 ) ) ) / sizeof( char );
-        private const string salt = "9F8a8,065#a3-8Rb!c0%вcу20e3f1b3^f42+59bc9Р8a8,0$5#a3-8%b!c;%bc'20d3f1(3^f]2{59Р}";
+        private const int maxRecordLength = ( bufSize - ( ivSize + 1 + Byte.MaxValue + sizeof( Int32 ) ) ) / sizeof( Int32 );
         private List<byte[]> buffers;
-        private int[] magicHash;
+        private readonly byte[] salt = Convert.FromBase64String( 
+            "ru5AEd259yYP+XKk/k1hbk3E4IqVOyaw4V61bmXbGGZMYTnm6pd5kY8mddGFX+dXcFhf6sBdR9m55Bb6cbCG4ZHOiEORrXtxsbIV/LQt9ZFCXG598JYV1sjqBiqx8U2ahG2FOhAgg92nUcBp7E9DzR4meceiqRetn2qD7JcfNpS2GOWt4ZQvGsJRcUkY6G7xhJ1XZORdcbnQXIJtNpgNaOTc+oAhzaoz7p9cV/0dRZMHX80hRKYsfvNPirdCtBHCM4Ri06rv9qbzy5AHDfTWB6UrwRAl1+BjU9guVNU2IdLfSA3ISR1L73baHiJV1Lm1SbtfU2msJtxiGruOVGlYXe8pFNLjvZrcXLZTnxm5g4h2A+pw/QkltF5Iz7eCbBSgaaNkbtrChxnApRAvPmw9QxAecEt3PG+nezQrb9ym/jFvNHmXzS1nMUG2RiJartFuEzDSDmDlwDu3PIkfc5Q993VrF7GVSy9R/PRudxhYUVwcq/+xknTu8sDS56RdVjTTJVOuIuy9oPNtkyq4hJr+ZQSgUWLJwALbus/ccpBrmpg/JMigDaPnS/fY9DEHS3nGhwvK48Jiu/ma6dSdlNx94BiuqSoUp0W0b3n3tGHNHhASeuXegR+gHZOyUyGew0iDL3chICw8u2fmomeQAWQpVplugBodxlfGyNhvku0NnLE=" );
         private byte[] key;
 
         private RandomNumberGenerator rnd = RandomNumberGenerator.Create();
@@ -31,7 +31,7 @@ namespace MySecureNotes
         public MainForm()
         {
             InitializeComponent();
-            
+
             passwordTextBox.MaxLength = salt.Length;
             updateTextBox.MaxLength = maxRecordLength;
             updateTextBox.ReadOnly = true;
@@ -55,25 +55,15 @@ namespace MySecureNotes
         {
             string password = passwordTextBox.Text;
 
-            Rfc2898DeriveBytes derivedBytes = new Rfc2898DeriveBytes( password, 
-                System.Text.Encoding.ASCII.GetBytes( salt ), 10000 );
+            // Using RFC2898 hashing with 10000 iteration to derive key for encryption from the password
+            Rfc2898DeriveBytes derivedBytes = new Rfc2898DeriveBytes( password, salt, 10000 );
             key = derivedBytes.GetBytes( 32 );
-
-            int[] passwordHash = new int[password.Length];
-            for( int i = 0; i < password.Length; i++ ) {
-                for( int j = 0; j < password.Length; j++ ) {
-                    if( i != j ) {
-                        passwordHash[i] ^= (int) password[j] ^ j;
-                    }
-                }
-            }
-
-            magicHash = new int[salt.Length];
-            for( int i = 0; i < salt.Length; i++ ) {
-                magicHash[i] = (int) salt[i] ^ passwordHash[i % passwordHash.Length];
-                magicHash[i] ^= (int) salt[magicHash[i] % salt.Length];
-            }
+            
+            // Explicitly set the AES encryption mode
+            algorithm.Mode = CipherMode.CBC;
+            algorithm.Padding = PaddingMode.None;
                         
+            // Reset the plain text password and trivia
             passwordTextBox.Text = "####################################";
             passwordTextBox.Enabled = false;
             startButton.Enabled = false;
@@ -94,6 +84,8 @@ namespace MySecureNotes
         {
             TreeNode node = treeView.Nodes.Add( ">>> Type a new note and press 'Enter' to commit or 'Esc' to cancel..." );
             treeView.SelectedNode = node;
+
+            // Create the random buffer to embed the real data
             buffers.Add( newRandomBuffer() );
 
             updateButton.Enabled = true;
@@ -247,10 +239,12 @@ namespace MySecureNotes
         private byte[] crypt( byte[] buf, bool encrypt )        
         {
             using( var m = new MemoryStream() ) {
+                // The prefix of the random buffer is used as IV
                 byte[] iv = new byte[ivSize];
                 Array.Copy( buf, iv, ivSize );
                 m.Write( buf, 0, ivSize );
 
+                // The rest is encrypted
                 ICryptoTransform cryptor = encrypt ? algorithm.CreateEncryptor( key, iv ) : algorithm.CreateDecryptor( key, iv );
                 using( Stream c = new CryptoStream( m, cryptor, CryptoStreamMode.Write ) ) {
                     c.Write( buf, ivSize, buf.Length - ivSize );
@@ -261,28 +255,33 @@ namespace MySecureNotes
 
         private string encode( string s, byte[] buf )
         {
+            // Random offset
             int offset = ivSize + buf[ivSize] + 1;
-            writeInt( buf, offset, s.Length );
+            var bytes = Encoding.UTF8.GetBytes( s );
+            writeInt( buf, offset, bytes.Length );
             offset += 4;
-            for( int i = 0; i < s.Length; i++ ) {
-                int c = (int)s[i] ^ magicHash[i] ^ magicHash[ magicHash[offset % magicHash.Length] % magicHash.Length ];
-                writeInt( buf, offset + 4 * i, c );
+            // Homebrew hash
+            for( int i = 0; i < bytes.Length; i++ ) {
+                buf[offset + i] = (byte)( bytes[i] ^ salt[i % salt.Length] ^ salt[salt[offset % salt.Length] % salt.Length]);
             }
+            // The true encryption
             return Convert.ToBase64String( crypt( buf, true ) );
         }
 
         private string decode( string s, out byte[] buf )
         {
+            // Decryption
             buf = crypt( Convert.FromBase64String( s ), false );
+            // Random offset
             int offset = ivSize + buf[ivSize] + 1;
-            int length = Math.Max( 0, Math.Min( maxRecordLength, readInt( buf, offset ) ) );
+            int length = Math.Min( buf.Length - offset - 4, Math.Abs( readInt( buf, offset ) ) );
             offset += 4;
-            System.Text.StringBuilder result = new System.Text.StringBuilder( length );
-            for( int i = 0; i < length; i++ ) {
-                int c = readInt( buf, offset + 4 * i );
-                result.Append( (char) ( c ^ (int) magicHash[i] ^ magicHash[magicHash[offset % magicHash.Length] % magicHash.Length] ) );
+            // Homebrew hash
+            var bytes = new byte[length];
+            for( int i = 0; i < bytes.Length; i++ ) {
+                bytes[i] = (byte) ( buf[offset + i] ^ salt[i % salt.Length] ^ salt[salt[offset % salt.Length] % salt.Length] );
             }
-            return result.ToString();
+            return Encoding.UTF8.GetString( bytes );
         }
 
         private byte[] newRandomBuffer()
