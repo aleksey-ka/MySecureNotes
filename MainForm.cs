@@ -53,10 +53,8 @@ namespace MySecureNotes
 
         private void startButton_Click( object sender, EventArgs e )
         {
-            string password = passwordTextBox.Text;
-
             // Using RFC2898 hashing with 10000 iteration to derive key for encryption from the password
-            Rfc2898DeriveBytes derivedBytes = new Rfc2898DeriveBytes( password, salt, 10000 );
+            Rfc2898DeriveBytes derivedBytes = new Rfc2898DeriveBytes( passwordTextBox.Text, salt, 10000 );
             key = derivedBytes.GetBytes( 32 );
             
             // Explicitly set the AES encryption mode
@@ -70,6 +68,7 @@ namespace MySecureNotes
             changePasswordButton.Visible = true;
 
             if( treeView.Nodes.Count > 0 ) {
+                // Used when changing password
                 save();
             }
 
