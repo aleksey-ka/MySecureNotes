@@ -20,7 +20,7 @@ namespace MySecureNotes
         private const int bufSize = 1024;
         private const int ivSize = 16;
         private const int maxRecordLength = ( bufSize - ( ivSize + 1 + Byte.MaxValue + sizeof( Int32 ) ) ) / sizeof( Int32 );
-        private List<byte[]> buffers;
+        private List<byte[]> buffers = new List<byte[]>();
         private readonly byte[] salt = Convert.FromBase64String( 
             "ru5AEd259yYP+XKk/k1hbk3E4IqVOyaw4V61bmXbGGZMYTnm6pd5kY8mddGFX+dXcFhf6sBdR9m55Bb6cbCG4ZHOiEORrXtxsbIV/LQt9ZFCXG598JYV1sjqBiqx8U2ahG2FOhAgg92nUcBp7E9DzR4meceiqRetn2qD7JcfNpS2GOWt4ZQvGsJRcUkY6G7xhJ1XZORdcbnQXIJtNpgNaOTc+oAhzaoz7p9cV/0dRZMHX80hRKYsfvNPirdCtBHCM4Ri06rv9qbzy5AHDfTWB6UrwRAl1+BjU9guVNU2IdLfSA3ISR1L73baHiJV1Lm1SbtfU2msJtxiGruOVGlYXe8pFNLjvZrcXLZTnxm5g4h2A+pw/QkltF5Iz7eCbBSgaaNkbtrChxnApRAvPmw9QxAecEt3PG+nezQrb9ym/jFvNHmXzS1nMUG2RiJartFuEzDSDmDlwDu3PIkfc5Q993VrF7GVSy9R/PRudxhYUVwcq/+xknTu8sDS56RdVjTTJVOuIuy9oPNtkyq4hJr+ZQSgUWLJwALbus/ccpBrmpg/JMigDaPnS/fY9DEHS3nGhwvK48Jiu/ma6dSdlNx94BiuqSoUp0W0b3n3tGHNHhASeuXegR+gHZOyUyGew0iDL3chICw8u2fmomeQAWQpVplugBodxlfGyNhvku0NnLE=" );
         private byte[] key;
