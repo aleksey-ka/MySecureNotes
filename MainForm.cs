@@ -95,16 +95,31 @@ namespace MySecureNotes
 
         private void deleteButton_Click( object sender, EventArgs e )
         {
-            bool delete = ( treeView.SelectedNode.Tag == null ||
-                MessageBox.Show( "Are you sure you want to delete the selected note?", this.Text,  MessageBoxButtons.OKCancel ) == DialogResult.OK );
-            if( delete ) {
-                int index = treeView.Nodes.IndexOf( treeView.SelectedNode );
-                treeView.Nodes.RemoveAt( index );
-                buffers.RemoveAt( index );
-                save();
+            if( treeView.SelectedNode.Tag == null ) {
+                // This is a folder node - forbid deletion
+                MessageBox.Show( "Cannot delete folders. Please delete individual notes instead.", this.Text, MessageBoxButtons.OK, MessageBoxIcon.Information );
+                return;
+            } else {
+                // This is a note node - allow deletion (folders will auto-cleanup if empty)
+                bool delete = MessageBox.Show( "Are you sure you want to delete the selected note?", this.Text, MessageBoxButtons.OKCancel ) == DialogResult.OK;
+                if( delete ) {
+                    // Remove the buffer for this note
+                    if( int.TryParse( treeView.SelectedNode.Name, out int bufferIndex ) && bufferIndex < buffers.Count ) {
+                        buffers.RemoveAt( bufferIndex );
+                        // Update the Name property of all subsequent nodes
+                        updateBufferIndices( treeView.Nodes, bufferIndex );
+                    }
 
-                treeView_AfterSelect( sender, null );
+                    treeView.SelectedNode.Remove();
+
+                    // Clean up empty folders after note deletion
+                    cleanupEmptyFolders();
+
+                    save();
+                }
             }
+
+            treeView_AfterSelect( sender, null );
         }
 
         private void editButton_Click( object sender, EventArgs e )
@@ -121,8 +136,25 @@ namespace MySecureNotes
                 return;
             }
 
-            treeView.SelectedNode.Tag = updateTextBox.Text;
-            treeView.SelectedNode.Text = getTitle( updateTextBox.Text );
+            // Check if this is a new note being created
+            if( treeView.SelectedNode.Text.StartsWith( ">>>" ) ) {
+                // This is a new note, so we need to recreate the tree structure
+                string newValue = updateTextBox.Text;
+
+                // Remove the temporary node
+                treeView.Nodes.Remove( treeView.SelectedNode );
+
+                // Add the note with proper path structure
+                addNodeWithPath( newValue, buffers.Count - 1 );
+
+                // Select the newly created note
+                treeView.SelectedNode = findNoteNode( newValue );
+            } else {
+                // This is an existing note being edited
+                treeView.SelectedNode.Tag = updateTextBox.Text;
+                treeView.SelectedNode.Text = getTitle( updateTextBox.Text );
+            }
+
             save();
 
             updateButton.Enabled = false;
@@ -134,12 +166,8 @@ namespace MySecureNotes
         {
             if( treeView.SelectedNode != null ) {
                 if( treeView.SelectedNode.Tag == null ) {
-                    bool discard = ( e == null || updateTextBox.Text.Length == 0 ||
-                        MessageBox.Show( "Discard changes?", this.Text, MessageBoxButtons.OKCancel ) == DialogResult.OK );
-                    if( discard ) {
-                        treeView.Nodes.Remove( treeView.SelectedNode );
-                        return;
-                    }
+                    // This is a folder node, no changes to discard
+                    return;
                 } else {
                     bool discard = ( e == null || updateTextBox.Text == (string) treeView.SelectedNode.Tag ||
                         MessageBox.Show( "Discard changes?", this.Text, MessageBoxButtons.OKCancel ) == DialogResult.OK );
@@ -153,15 +181,18 @@ namespace MySecureNotes
 
         private void treeView_AfterSelect( object sender, TreeViewEventArgs e )
         {
-            deleteButton.Enabled = treeView.SelectedNode != null;
-            editButton.Enabled = treeView.SelectedNode != null;
-            autoHideCheckBox.Enabled = treeView.SelectedNode != null;
+            // Enable delete button for any note node (not folders)
+            bool canDelete = treeView.SelectedNode != null && treeView.SelectedNode.Tag != null;
+            deleteButton.Enabled = canDelete;
+
+            editButton.Enabled = treeView.SelectedNode != null && treeView.SelectedNode.Tag != null;
+            autoHideCheckBox.Enabled = treeView.SelectedNode != null && treeView.SelectedNode.Tag != null;
             autoHideCheckBox.Checked = true;
             updateButton.Enabled = false;
             addNewButton.Enabled = true;
             updateTextBox.ReadOnly = true;
             
-            if( treeView.SelectedNode != null ) {
+            if( treeView.SelectedNode != null && treeView.SelectedNode.Tag != null ) {
                 updateTextBox.Text = (string)treeView.SelectedNode.Tag;
             } else {
                 updateTextBox.Text = "";
@@ -204,14 +235,22 @@ namespace MySecureNotes
             string filePath = Properties.Settings.Default.FilePath;
             if( File.Exists( filePath ) ) {
                 string[] strings = File.ReadAllLines( filePath );
-                buffers = new List<byte[]>( strings.Length );
+                buffers = new List<byte[]>();
+
                 foreach( string s in strings ) {
                     if( s.Trim().Length > 0 ) {
                         byte[] buffer;
                         string value = decode( s, out buffer );
-                        TreeNode newNode = treeView.Nodes.Add( getTitle( value ) );
-                        newNode.Tag = value;
                         buffers.Add( buffer );
+                        // Use addNodeWithPath to create hierarchical structure for ALL notes
+                        addNodeWithPath( value, buffers.Count - 1 );
+                    }
+                }
+
+                // Expand all root level folders to show their expand/collapse indicators
+                foreach( TreeNode node in treeView.Nodes ) {
+                    if( node.Tag == null ) { // This is a folder node
+                        node.Expand();
                     }
                 }
             }
@@ -220,19 +259,126 @@ namespace MySecureNotes
         private void save()
         {
             List<string> strings = new List<string>();
-            int index = 0;
-            foreach( TreeNode node in treeView.Nodes ) {
-                strings.Add( encode( (string) node.Tag, buffers[index] ) );
-                strings.Add( "" );
-                index++;
-            }
+            saveRecursive( treeView.Nodes, strings );
             File.WriteAllLines( Properties.Settings.Default.FilePath, strings.ToArray() );
+        }
+
+        private void saveRecursive( TreeNodeCollection nodes, List<string> strings )
+        {
+            foreach( TreeNode node in nodes ) {
+                if( node.Tag != null ) { // This is a note node
+                    int bufferIndex = int.Parse( node.Name );
+                    strings.Add( encode( (string) node.Tag, buffers[bufferIndex] ) );
+                    strings.Add( "" );
+                } else { // This is a folder node
+                    saveRecursive( node.Nodes, strings );
+                }
+            }
         }
 
         private string getTitle( string value )
         {
             int pos = value.IndexOf( ' ' );
             return pos != -1 ? value.Substring( 0, pos ) : value;
+        }
+
+        private void addNodeWithPath( string value, int bufferIndex )
+        {
+            string title = getTitle( value );
+            string[] pathParts = title.Split( '\\' );
+
+            TreeNodeCollection currentLevel = treeView.Nodes;
+            List<TreeNode> createdFolders = new List<TreeNode>();
+
+            // Navigate through the path, creating folders as needed
+            for( int i = 0; i < pathParts.Length - 1; i++ ) {
+                string folderName = pathParts[i];
+                TreeNode folderNode = null;
+
+                // Look for existing folder
+                foreach( TreeNode node in currentLevel ) {
+                    if( node.Text == folderName && node.Tag == null ) {
+                        folderNode = node;
+                        break;
+                    }
+                }
+
+                // Create folder if it doesn't exist
+                if( folderNode == null ) {
+                    folderNode = currentLevel.Add( folderName );
+                    folderNode.Tag = null; // null Tag indicates a folder node
+                    createdFolders.Add( folderNode );
+                }
+
+                currentLevel = folderNode.Nodes;
+            }
+
+            // Add the actual note at the final level
+            string noteName = pathParts[pathParts.Length - 1];
+            TreeNode noteNode = currentLevel.Add( noteName );
+            noteNode.Tag = value;
+            noteNode.Name = bufferIndex.ToString();
+
+            // Ensure all created folders are expanded to show their children
+            foreach( TreeNode folder in createdFolders ) {
+                folder.Expand();
+            }
+        }
+
+        private TreeNode findNoteNode( string value )
+        {
+            return findNoteNodeRecursive( treeView.Nodes, value );
+        }
+
+        private TreeNode findNoteNodeRecursive( TreeNodeCollection nodes, string value )
+        {
+            foreach( TreeNode node in nodes ) {
+                if( node.Tag != null && node.Tag.ToString() == value ) {
+                    return node;
+                }
+
+                TreeNode found = findNoteNodeRecursive( node.Nodes, value );
+                if( found != null ) {
+                    return found;
+                }
+            }
+            return null;
+        }
+
+        private void updateBufferIndices( TreeNodeCollection nodes, int removedIndex )
+        {
+            foreach( TreeNode node in nodes ) {
+                if( node.Tag != null ) { // This is a note node
+                    if( int.TryParse( node.Name, out int bufferIndex ) && bufferIndex > removedIndex ) {
+                        node.Name = ( bufferIndex - 1 ).ToString();
+                    }
+                } else { // This is a folder node
+                    updateBufferIndices( node.Nodes, removedIndex );
+                }
+            }
+        }
+
+        private void cleanupEmptyFolders()
+        {
+            cleanupEmptyFoldersRecursive( treeView.Nodes );
+        }
+
+        private void cleanupEmptyFoldersRecursive( TreeNodeCollection nodes )
+        {
+            // Work backwards to avoid index issues when removing nodes
+            for( int i = nodes.Count - 1; i >= 0; i-- ) {
+                TreeNode node = nodes[i];
+
+                if( node.Tag == null ) { // This is a folder node
+                    // Recursively clean up subfolders first
+                    cleanupEmptyFoldersRecursive( node.Nodes );
+
+                    // If the folder is now empty, remove it
+                    if( node.Nodes.Count == 0 ) {
+                        nodes.RemoveAt( i );
+                    }
+                }
+            }
         }
 
         private byte[] crypt( byte[] buf, bool encrypt )        
