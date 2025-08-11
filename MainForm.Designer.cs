@@ -43,6 +43,7 @@
             this.updateButton = new System.Windows.Forms.Button();
             this.updateTextBox = new System.Windows.Forms.TextBox();
             this.autoHidePromptLabel = new System.Windows.Forms.Label();
+            this.filterTextBox = new System.Windows.Forms.TextBox();
             this.groupBox.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -53,7 +54,7 @@
             this.passwordTextBox.Location = new System.Drawing.Point(12, 12);
             this.passwordTextBox.MaxLength = 40;
             this.passwordTextBox.Name = "passwordTextBox";
-            this.passwordTextBox.Size = new System.Drawing.Size(610, 20);
+            this.passwordTextBox.Size = new System.Drawing.Size(412, 20);
             this.passwordTextBox.TabIndex = 0;
             this.passwordTextBox.UseSystemPasswordChar = true;
             this.passwordTextBox.TextChanged += new System.EventHandler(this.passwordTextBox_TextChanged);
@@ -63,7 +64,7 @@
             this.startButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.startButton.DialogResult = System.Windows.Forms.DialogResult.OK;
             this.startButton.Enabled = false;
-            this.startButton.Location = new System.Drawing.Point(628, 10);
+            this.startButton.Location = new System.Drawing.Point(430, 10);
             this.startButton.Name = "startButton";
             this.startButton.Size = new System.Drawing.Size(91, 23);
             this.startButton.TabIndex = 1;
@@ -219,6 +220,15 @@
             this.autoHidePromptLabel.TabIndex = 11;
             this.autoHidePromptLabel.Text = "Uncheck the checkbox below to keep the text visible";
             // 
+            // filterTextBox
+            // 
+            this.filterTextBox.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.filterTextBox.Location = new System.Drawing.Point(527, 12);
+            this.filterTextBox.Name = "filterTextBox";
+            this.filterTextBox.Size = new System.Drawing.Size(186, 20);
+            this.filterTextBox.TabIndex = 4;
+            this.filterTextBox.PreviewKeyDown += new System.Windows.Forms.PreviewKeyDownEventHandler(this.filterTextBox_KeyDown);
+            // 
             // MainForm
             // 
             this.AcceptButton = this.startButton;
@@ -226,6 +236,7 @@
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.CancelButton = this.cancelButton;
             this.ClientSize = new System.Drawing.Size(731, 469);
+            this.Controls.Add(this.filterTextBox);
             this.Controls.Add(this.groupBox);
             this.Controls.Add(this.startButton);
             this.Controls.Add(this.passwordTextBox);
@@ -260,6 +271,7 @@
         private System.Windows.Forms.Button cancelButton;
         private System.Windows.Forms.CheckBox autoHideCheckBox;
         private System.Windows.Forms.Label autoHidePromptLabel;
+        private System.Windows.Forms.TextBox filterTextBox;
     }
 }
 
