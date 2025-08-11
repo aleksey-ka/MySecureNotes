@@ -41,7 +41,7 @@ namespace MySecureNotes
         {
             if( !File.Exists( Properties.Settings.Default.FilePath ) ) {
                 MessageBox.Show(
-                    @"To start using your secure notes storage, please enter a new password when prompted and press 'Start' button. Use this password to access your secure notes later. Do not forget this password as there will be no way to restore it!",
+                    @"To start using your secure notes storage, please enter a new password when prompted and press the 'Start' button. Use this password to access your secure notes later. Do not forget this password as there will be no way to restore it!",
                     "Welcome!" );
             }
         }
@@ -53,7 +53,7 @@ namespace MySecureNotes
 
         private void startButton_Click( object sender, EventArgs e )
         {
-            // Using RFC2898 hashing with 10000 iteration to derive key for encryption from the password
+            // Using RFC2898 hashing with 10000 iterations to derive key for encryption from the password
             Rfc2898DeriveBytes derivedBytes = new Rfc2898DeriveBytes( passwordTextBox.Text, salt, 10000 );
             key = derivedBytes.GetBytes( 32 );
             
@@ -68,7 +68,7 @@ namespace MySecureNotes
             changePasswordButton.Visible = true;
 
             if( treeView.Nodes.Count > 0 ) {
-                // Used when changing password
+                // Used when changing the password
                 save();
             }
 
@@ -81,7 +81,7 @@ namespace MySecureNotes
 
         private void addNewButton_Click( object sender, EventArgs e )
         {
-            TreeNode node = treeView.Nodes.Add( ">>> Type a new note and press 'Enter' to commit or 'Esc' to cancel..." );
+            TreeNode node = treeView.Nodes.Add( ">>> Type a new note and press the 'Enter' key to commit or the 'Esc' key to cancel..." );
             treeView.SelectedNode = node;
 
             // Create the random buffer to embed the real data
