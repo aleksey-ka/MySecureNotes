@@ -90,6 +90,7 @@ namespace MySecureNotes
             
             groupBox.Enabled = true;
             AcceptButton = updateButton;
+            treeView.CollapseAll();
             treeView_AfterSelect( sender, null );
         }
 
